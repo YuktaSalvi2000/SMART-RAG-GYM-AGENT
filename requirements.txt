@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 aiofiles==24.1.0
 python-dotenv==1.2.1
 aiohappyeyeballs==2.6.1
@@ -116,23 +115,3 @@ uvicorn==0.40.0
 xxhash==3.6.0
 yarl==1.22.0
 zstandard==0.25.0
-=======
-langchain==0.1.20
-langchain-community==0.0.38
-langchain-openai==0.1.7
-langchain_text_splitters
-tiktoken
-openai
-fuzzywuzzy
-tiktoken
-faiss-cpu
-sentence-transformers
-torchvision
-transformers
-torch
-pillow
-pypdf
-docx2txt
-pandas
-numpy
->>>>>>> 340e60dc75f3073dca4463d65b333c4c0580935b
