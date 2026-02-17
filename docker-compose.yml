@@ -1,0 +1,9 @@
+services:
+  smart-rag-gym:
+    build: .
+    container_name: smart-rag-gym
+    ports:
+      - "7860:7860"
+    env_file:
+      - .env
+    restart: unless-stopped
