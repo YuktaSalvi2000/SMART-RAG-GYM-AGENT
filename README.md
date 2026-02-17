@@ -13,13 +13,13 @@ https://huggingface.co/spaces/YUKTA2000/SMART-RAG-GYM-AGENT
   - Make sure Docker Desktop is **running**
   - WSL2 enabled (Windows)
 
-## 1) Clone the repository
+1) Clone the repository
 
 ```bash
 git clone <YOUR_REPO_URL>
 cd "D:\UIC\Personal Projects\Smart RAG Gym Agent"
 
-## 2) Environment Variables
+## 1) Clone the repository
 
 Create a .env file in the project root
 OPENAI_API_KEY=your_key_here
