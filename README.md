@@ -15,7 +15,6 @@ https://huggingface.co/spaces/YUKTA2000/SMART-RAG-GYM-AGENT
 
 ## 1) Clone the repository
 
-```bash
 git clone <YOUR_REPO_URL>
 cd "D:\UIC\Personal Projects\Smart RAG Gym Agent"
 
