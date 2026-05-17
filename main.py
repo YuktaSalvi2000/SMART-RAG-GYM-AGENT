@@ -47,11 +47,11 @@ logger = logging.getLogger(__name__)
 # ── Environment ───────────────────────────────────────────────────────────────
 
 AWS_REGION       = os.getenv("AWS_REGION", "us-east-1")
-BEDROCK_MODEL_ID = os.getenv("BEDROCK_MODEL_ID", BEDROCK_MODEL_ID = "us.anthropic.claude-haiku-4-5-20251001-v1:0")
+BEDROCK_MODEL_ID = os.getenv("BEDROCK_MODEL_ID", "us.anthropic.claude-haiku-4-5-20251001-v1:0")
 S3_BUCKET        = os.getenv("S3_BUCKET", "your-smart-gym-rag-bucket")
 S3_PROFILE_PREFIX = os.getenv("S3_PROFILE_PREFIX", "profiles")
 API_KEY          = os.getenv("API_KEY", "change-me-in-production")
-ALLOWED_ORIGINS  = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000").split(",")
+ALLOWED_ORIGINS  = os.getenv("ALLOWED_ORIGINS", "http://3.87.237.222:8000").split(",")
 
 MAX_FILE_SIZE    = 10 * 1024 * 1024   # 10 MB
 ALLOWED_EXTENSIONS = {".pdf", ".txt", ".md", ".csv", ".docx"}
