@@ -1,0 +1,12 @@
+env_rag
+__pycache__
+.ipynb_checkpoints
+.git
+.gitignore
+.gradio
+storage
+*.pdf
+*.jpg
+*.png
+*.csv
+*.docx

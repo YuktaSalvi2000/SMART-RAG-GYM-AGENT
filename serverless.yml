@@ -1,0 +1,272 @@
+# Serverless Framework configuration
+# Deploy with: serverless deploy
+
+service: fitness-coach-api
+
+provider:
+  name: aws
+  runtime: python3.11
+  region: us-east-1
+  stage: dev
+  
+  # Environment variables
+  environment:
+    DB_HOST: !GetAtt FitnessDatabase.Endpoint.Address
+    DB_USER: admin
+    DB_PASSWORD: !Sub '{{resolve:secretsmanager:fitness-db-password:SecretString:password}}'
+    DB_NAME: fitness_app
+    REDIS_HOST: !GetAtt FitnessCache.RedisEndpoint.Address
+    REDIS_PORT: 6379
+    AWS_REGION: us-east-1
+    S3_BUCKET: fitness-app-images
+  
+  # IAM Permissions
+  iamRoleStatements:
+    - Effect: Allow
+      Action:
+        - bedrock:InvokeModel
+      Resource: arn:aws:bedrock:us-east-1::foundation-model/anthropic.claude-3-sonnet-20240229-v1:0
+    
+    - Effect: Allow
+      Action:
+        - s3:PutObject
+        - s3:GetObject
+      Resource: arn:aws:s3:::fitness-app-images/*
+    
+    - Effect: Allow
+      Action:
+        - rds:DescribeDBInstances
+        - rds-db:connect
+      Resource: "*"
+    
+    - Effect: Allow
+      Action:
+        - cloudwatch:PutMetricData
+      Resource: "*"
+    
+    - Effect: Allow
+      Action:
+        - secretsmanager:GetSecretValue
+      Resource: arn:aws:secretsmanager:us-east-1:ACCOUNT_ID:secret:fitness-db-password-*
+
+# Lambda function
+functions:
+  api:
+    handler: lambda_handler.handler
+    events:
+      - httpApi:
+          path: /{proxy+}
+          method: ANY
+      - httpApi:
+          path: /
+          method: ANY
+    timeout: 30
+    memorySize: 512
+    ephemeralSize: 512
+    layers:
+      - !Ref PythonDependenciesLayer
+    vpc:
+      securityGroupIds:
+        - !GetAtt LambdaSecurityGroup.GroupId
+      subnetIds:
+        - subnet-12345678
+        - subnet-87654321
+
+# Lambda Layer for dependencies
+layers:
+  pythonDependencies:
+    path: layers/python
+    name: ${self:service}-dependencies-${sls:stage}
+    description: Python dependencies for fitness coach API
+    compatibleRuntimes:
+      - python3.11
+
+# CloudWatch Logs
+plugins:
+  - serverless-plugin-warmup
+  - serverless-python-requirements
+
+custom:
+  pythonRequirements:
+    dockerizePip: true
+    slim: true
+    strip: false
+    layer: true
+  
+  warmup:
+    default:
+      enabled: true
+      events:
+        - schedule: rate(5 minutes)
+      concurrency: 1
+
+# Resources (RDS, ElastiCache, S3)
+resources:
+  Resources:
+    # RDS PostgreSQL Database
+    FitnessDatabase:
+      Type: AWS::RDS::DBInstance
+      Properties:
+        DBInstanceIdentifier: fitness-db
+        Engine: postgres
+        EngineVersion: "15.4"
+        DBInstanceClass: db.t3.micro
+        AllocatedStorage: 20
+        StorageType: gp2
+        DBName: fitness_app
+        MasterUsername: admin
+        MasterUserPassword: !Sub '{{resolve:secretsmanager:fitness-db-password:SecretString:password}}'
+        VpcSecurityGroupIds:
+          - !GetAtt RDSSecurityGroup.GroupId
+        DBSubnetGroupName: !Ref DBSubnetGroup
+        BackupRetentionPeriod: 7
+        MultiAZ: false
+        PubliclyAccessible: false
+        StorageEncrypted: true
+    
+    # RDS Security Group
+    RDSSecurityGroup:
+      Type: AWS::EC2::SecurityGroup
+      Properties:
+        GroupDescription: Security group for RDS
+        VpcId: vpc-12345678
+        SecurityGroupIngress:
+          - IpProtocol: tcp
+            FromPort: 5432
+            ToPort: 5432
+            CidrIp: 10.0.0.0/8
+    
+    # DB Subnet Group
+    DBSubnetGroup:
+      Type: AWS::RDS::DBSubnetGroup
+      Properties:
+        DBSubnetGroupDescription: Subnet group for RDS
+        SubnetIds:
+          - subnet-12345678
+          - subnet-87654321
+    
+    # ElastiCache Redis
+    FitnessCache:
+      Type: AWS::ElastiCache::CacheCluster
+      Properties:
+        CacheClusterIdentifier: fitness-cache
+        CacheNodeType: cache.t3.micro
+        Engine: redis
+        EngineVersion: "7.0"
+        NumCacheNodes: 1
+        VpcSecurityGroupIds:
+          - !GetAtt ElastiCacheSecurityGroup.GroupId
+        CacheSubnetGroupName: !Ref CacheSubnetGroup
+        AutomaticFailover: false
+    
+    # ElastiCache Security Group
+    ElastiCacheSecurityGroup:
+      Type: AWS::EC2::SecurityGroup
+      Properties:
+        GroupDescription: Security group for ElastiCache
+        VpcId: vpc-12345678
+        SecurityGroupIngress:
+          - IpProtocol: tcp
+            FromPort: 6379
+            ToPort: 6379
+            CidrIp: 10.0.0.0/8
+    
+    # Cache Subnet Group
+    CacheSubnetGroup:
+      Type: AWS::ElastiCache::SubnetGroup
+      Properties:
+        Description: Subnet group for ElastiCache
+        SubnetIds:
+          - subnet-12345678
+          - subnet-87654321
+    
+    # Lambda Security Group
+    LambdaSecurityGroup:
+      Type: AWS::EC2::SecurityGroup
+      Properties:
+        GroupDescription: Security group for Lambda
+        VpcId: vpc-12345678
+        SecurityGroupEgress:
+          - IpProtocol: tcp
+            FromPort: 5432
+            ToPort: 5432
+            DestinationSecurityGroupId: !GetAtt RDSSecurityGroup.GroupId
+          - IpProtocol: tcp
+            FromPort: 6379
+            ToPort: 6379
+            DestinationSecurityGroupId: !GetAtt ElastiCacheSecurityGroup.GroupId
+    
+    # S3 Bucket for Images
+    FitnessImagesBucket:
+      Type: AWS::S3::Bucket
+      Properties:
+        BucketName: fitness-app-images
+        VersioningConfiguration:
+          Status: Enabled
+        LifecycleConfiguration:
+          Rules:
+            - Id: DeleteOldVersions
+              Status: Enabled
+              NoncurrentVersionExpirationInDays: 30
+        PublicAccessBlockConfiguration:
+          BlockPublicAcls: true
+          BlockPublicPolicy: true
+          IgnorePublicAcls: true
+          RestrictPublicBuckets: true
+    
+    # CloudWatch Log Group
+    ApiLogGroup:
+      Type: AWS::Logs::LogGroup
+      Properties:
+        LogGroupName: /aws/lambda/fitness-coach-api
+        RetentionInDays: 7
+    
+    # CloudWatch Alarms
+    HighLatencyAlarm:
+      Type: AWS::CloudWatch::Alarm
+      Properties:
+        AlarmName: fitness-coach-high-latency
+        MetricName: ResponseLatency
+        Namespace: FitnessCoach
+        Statistic: Average
+        Period: 300
+        EvaluationPeriods: 2
+        Threshold: 1000
+        ComparisonOperator: GreaterThanThreshold
+        AlarmActions:
+          - !Ref SNSNotificationTopic
+    
+    Hallucinations Detected Alarm:
+      Type: AWS::CloudWatch::Alarm
+      Properties:
+        AlarmName: fitness-coach-hallucinations
+        MetricName: HallucinationCount
+        Namespace: FitnessCoach
+        Statistic: Sum
+        Period: 300
+        EvaluationPeriods: 1
+        Threshold: 5
+        ComparisonOperator: GreaterThanThreshold
+        AlarmActions:
+          - !Ref SNSNotificationTopic
+    
+    # SNS Topic for alerts
+    SNSNotificationTopic:
+      Type: AWS::SNS::Topic
+      Properties:
+        TopicName: fitness-coach-alerts
+        DisplayName: Fitness Coach API Alerts
+
+# Outputs
+outputs:
+  ApiEndpoint:
+    Description: API Gateway endpoint URL
+    Value: !Sub "https://${HttpApi}.execute-api.${AWS::Region}.amazonaws.com"
+  
+  DatabaseEndpoint:
+    Description: RDS endpoint
+    Value: !GetAtt FitnessDatabase.Endpoint.Address
+  
+  CacheEndpoint:
+    Description: ElastiCache endpoint
+    Value: !GetAtt FitnessCache.RedisEndpoint.Address

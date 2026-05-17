@@ -1,9 +1,77 @@
+version: '3.8'
+
 services:
-  smart-rag-gym:
-    build: .
-    container_name: smart-rag-gym
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15.4-alpine
+    container_name: fitness_postgres
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: password123
+      POSTGRES_DB: fitness_app
     ports:
-      - "7860:7860"
-    env_file:
-      - .env
-    restart: unless-stopped
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis Cache
+  redis:
+    image: redis:7.0-alpine
+    container_name: fitness_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # FastAPI Application
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: fitness_api
+    ports:
+      - "8000:8000"
+    environment:
+      DB_HOST: postgres
+      DB_USER: admin
+      DB_PASSWORD: password123
+      DB_NAME: fitness_app
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      AWS_REGION: us-east-1
+      S3_BUCKET: fitness-app-images
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - .:/app
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+
+  # Adminer (Database Management UI)
+  adminer:
+    image: adminer:latest
+    container_name: fitness_adminer
+    ports:
+      - "8080:8080"
+    depends_on:
+      - postgres
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  default:
+    name: fitness-network

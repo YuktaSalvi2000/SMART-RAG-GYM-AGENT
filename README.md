@@ -14,12 +14,9 @@ https://huggingface.co/spaces/YUKTA2000/SMART-RAG-GYM-AGENT
   - WSL2 enabled (Windows)
 
 
-<<<<<<< HEAD
-=======
-## Clone repository
+## 1) Clone repository
 
->>>>>>> c1847f9fc2e1fc7ed10b4db556a30cdc50a130d5
-git clone <YOUR_REPO_URL>
+git clone 
 cd "D:\UIC\Personal Projects\Smart RAG Gym Agent"
 
 ## 2) Create an env file
